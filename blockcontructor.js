@@ -74,6 +74,7 @@
 // // Execute main function
 // main();
 
+
 const fs = require('fs');
 
 // Read the mempool.csv file
@@ -100,6 +101,10 @@ for (const transaction of transactions) {
   }
 }
 
+// Write the block data to a file
+fs.writeFileSync('./Outputs/block.txt', block.join('\n'));
+
 // Print the txids of the transactions in the block
-console.log(block.join('\n'));
+console.log('Block data has been written to block.txt');
+
 
