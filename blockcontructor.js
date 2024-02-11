@@ -1,9 +1,9 @@
 const fs = require('fs');
 
 // Transaction data directly provided
-const data = fs.readFileSync('./Memopool/mempool.csv', 'utf8')
+const data = fs.readFileSync('./Memopool/mempool.csv', 'utf8');
 // Parse transactions from provided data
-const transactions = data.map(line => line.split(','));
+const transactions = data.split('\n').map(line => line.split(','));
 
 // Create an empty block
 const block = [];
@@ -22,7 +22,7 @@ for (const transaction of transactions) {
     block.push(txid);
     totalWeight += parseInt(weight);
     totalFee += parseInt(fee);
-  }git
+  }
 }
 
 // Write the block data to a file
