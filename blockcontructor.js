@@ -1,46 +1,71 @@
 const fs = require('fs');
+const crypto = require('crypto');
 
-try {
-    // Read the mempool.csv file
-    const data = fs.readFileSync('./Memopool/mempool.csv', 'utf8');
-    
-    // Parse transactions from provided data
-    const transactions = data.split('\n').map(line => line.split(','));
-    
-    // Create an empty block
-    const block = [];
-    let totalWeight = 0;
-    let totalFee = 0;
-    
-    // Sort transactions by fee-to-weight ratio in descending order
-    transactions.sort((a, b) => (parseInt(b[1]) / parseInt(b[2])) - (parseInt(a[1]) / parseInt(a[2])));
-    
-    // Iterate through transactions
-    for (const transaction of transactions) {
-        // Ensure the transaction has the expected number of elements
-        if (transaction.length !== 4) {
-            console.error(`Invalid transaction format: ${transaction}`);
-            continue;
-        }
-        
-        const [txid, fee, weight, parentTxids] = transaction;
-        
-        // Check if transaction can be included in the block
-        if (parseInt(weight) + totalWeight <= 4000000 && (!parentTxids || parentTxids.split(';').every(parentTxid => block.includes(parentTxid)))) {
-            block.push(txid);
-            totalWeight += parseInt(weight);
-            totalFee += parseInt(fee);
-        } else {
-            // Log transactions that are not included in the block
-            console.log(`Transaction ${txid} cannot be included in the block.`);
-        }
-    }
-    
-    // Write the block data to a file
-    fs.writeFileSync('./Outputs/block.txt', block.join('\n'));
-    
-    // Print the txids of the transactions in the block
-    console.log('Block data has been written to block.txt');
-} catch (error) {
-    console.error('An error occurred:', error);
+function calculateHash(previousHash, transactions, timestamp, nonce) {
+    const blockString = previousHash + JSON.stringify(transactions) + timestamp + nonce;
+    return crypto.createHash('sha256').update(blockString).digest('hex');
 }
+
+function mineBlock(previousHash, transactions, difficulty) {
+    let nonce = 0;
+    const targetPrefix = Array(difficulty + 1).join('0');
+    let hash = calculateHash(previousHash, transactions, Date.now(), nonce);
+    while (hash.substring(0, difficulty) !== targetPrefix) {
+        nonce++;
+        hash = calculateHash(previousHash, transactions, Date.now(), nonce);
+    }
+    return { hash, nonce };
+}
+
+function createGenesisBlock() {
+    return {
+        previousHash: '0',
+        transactions: [{ sender: 'Genesis', recipient: 'Genesis', amount: 0 }],
+        timestamp: Date.now(),
+        nonce: 0,
+        hash: '',
+    };
+}
+
+function readTransactionsFromCSV(csvFilePath) {
+    const csvData = fs.readFileSync(csvFilePath, 'utf-8');
+    const lines = csvData.split('\n');
+    const transactions = lines.slice(0, 3).map((line) => {
+        const [sender, recipient, amount] = line.split(',');
+        return { sender, recipient, amount: parseFloat(amount) };
+    });
+    return transactions;
+}
+
+function createBlock(previousHash, transactions, difficulty) {
+    const { hash, nonce } = mineBlock(previousHash, transactions, difficulty);
+    return { previousHash, transactions, timestamp: Date.now(), nonce, hash };
+}
+
+function createBlockchain(csvFilePath, difficulty) {
+    const blockchain = [createGenesisBlock()];
+    const transactions = readTransactionsFromCSV(csvFilePath);
+    let previousHash = blockchain[0].hash;
+
+    for (const transaction of transactions) {
+        const newBlock = createBlock(previousHash, [transaction], difficulty);
+        blockchain.push(newBlock);
+        previousHash = newBlock.hash;
+    }
+
+    return blockchain;
+}
+
+function saveBlockchainToFile(blockchain) {
+    const data = blockchain.map(block => JSON.stringify(block)).join('\n');
+    fs.writeFileSync('./Outputs/block.txt', data);
+}
+
+const csvFilePath = './Memopool/mempool.csv';
+const difficultyLevel = 3;
+const blockchain = createBlockchain(csvFilePath, difficultyLevel);
+saveBlockchainToFile(blockchain);
+console.log("Blockchain saved to block.txt");
+
+
+
